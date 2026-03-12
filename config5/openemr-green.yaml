@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openemr-green
+  namespace: openemr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openemr
+      version: green
+  template:
+    metadata:
+      labels:
+        app: openemr
+        version: green
+    spec:
+      containers:
+      - name: openemr
+        image: openemr/openemr:flex
+        ports:
+        - containerPort: 80
+        env:
+        - name: MYSQL_HOST
+          value: "mysql"
+        - name: MYSQL_ROOT_PASS
+          value: "root"
+        - name: MYSQL_USER
+          value: "openemr"
+        - name: MYSQL_PASS
+          value: "openemr"
+        - name: OE_USER
+          value: "admin"
+        - name: OE_PASS
+          value: "pass"
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
