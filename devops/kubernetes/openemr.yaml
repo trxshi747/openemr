@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openemr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openemr
+  template:
+    metadata:
+      labels:
+        app: openemr
+    spec:
+      containers:
+        - name: openemr
+          image: openemr/openemr
+          env:
+            - name: MYSQL_HOST
+              value: db
+            - name: MYSQL_DATABASE
+              value: openemr
+            - name: MYSQL_USER
+              value: openemr
+            - name: MYSQL_PASSWORD
+              value: openemr
+          ports:
+            - containerPort: 80
