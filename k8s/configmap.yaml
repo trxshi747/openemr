@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openemr-config
+  namespace: openemr
+data:
+  MYSQL_HOST: "mysql-service"
+  MYSQL_ROOT_PASS: "root"
+  MYSQL_USER: "openemr"
+  MYSQL_PASS: "openemr"
+  OE_USER: "admin"
+  OE_PASS: "pass"
