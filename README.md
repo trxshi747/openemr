@@ -1,79 +1,156 @@
-[![Syntax Status](https://github.com/openemr/openemr/actions/workflows/syntax.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/syntax.yml)
-[![Styling Status](https://github.com/openemr/openemr/actions/workflows/styling.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/styling.yml)
-[![Testing Status](https://github.com/openemr/openemr/actions/workflows/test.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/test.yml)
-[![JS Unit Testing Status](https://github.com/openemr/openemr/actions/workflows/js-test.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/js-test.yml)
-[![PHPStan](https://github.com/openemr/openemr/actions/workflows/phpstan.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/phpstan.yml)
-[![Rector](https://github.com/openemr/openemr/actions/workflows/rector.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/rector.yml)
-[![ShellCheck](https://github.com/openemr/openemr/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/shellcheck.yml)
-[![Docker Compose Linting](https://github.com/openemr/openemr/actions/workflows/docker-compose-lint.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/docker-compose-lint.yml)
-[![Dockerfile Linting](https://github.com/openemr/openemr/actions/workflows/hadolint.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/hadolint.yml)
-[![Isolated Tests](https://github.com/openemr/openemr/actions/workflows/isolated-tests.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/isolated-tests.yml)
-[![Inferno Certification Test](https://github.com/openemr/openemr/actions/workflows/inferno-test.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/inferno-test.yml)
-[![Composer Checks](https://github.com/openemr/openemr/actions/workflows/composer.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/composer.yml)
-[![Composer Require Checker](https://github.com/openemr/openemr/actions/workflows/composer-require-checker.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/composer-require-checker.yml)
-[![API Docs Freshness Checks](https://github.com/openemr/openemr/actions/workflows/api-docs.yml/badge.svg)](https://github.com/openemr/openemr/actions/workflows/api-docs.yml)
-[![codecov](https://codecov.io/gh/openemr/openemr/graph/badge.svg?token=7Eu3U1Ozdq)](https://codecov.io/gh/openemr/openemr)
+# Configuration 5 — K8s + Auto-scaling + Blue/Green
 
-[![Backers on Open Collective](https://opencollective.com/openemr/backers/badge.svg)](#backers) [![Sponsors on Open Collective](https://opencollective.com/openemr/sponsors/badge.svg)](#sponsors)
+## Overview
 
-# OpenEMR
+This configuration deploys **OpenEMR** on Kubernetes with **Horizontal Pod Autoscaler (HPA)** and **Blue/Green deployment strategy**, combining zero-downtime deployments with automatic scaling under variable load.
 
-[OpenEMR](https://open-emr.org) is a Free and Open Source electronic health records and medical practice management application. It features fully integrated electronic health records, practice management, scheduling, electronic billing, internationalization, free support, a vibrant community, and a whole lot more. It runs on Windows, Linux, Mac OS X, and many other platforms.
+---
 
-### Contributing
+## Architecture
 
-OpenEMR is a leader in healthcare open source software and comprises a large and diverse community of software developers, medical providers and educators with a very healthy mix of both volunteers and professionals. [Join us and learn how to start contributing today!](https://open-emr.org/wiki/index.php/FAQ#How_do_I_begin_to_volunteer_for_the_OpenEMR_project.3F)
-
-> Already comfortable with git? Check out [CONTRIBUTING.md](CONTRIBUTING.md) for quick setup instructions and requirements for contributing to OpenEMR by resolving a bug or adding an awesome feature 😊.
-
-### Support
-
-Community and Professional support can be found [here](https://open-emr.org/wiki/index.php/OpenEMR_Support_Guide).
-
-Extensive documentation and forums can be found on the [OpenEMR website](https://open-emr.org) that can help you to become more familiar about the project 📖.
-
-### Reporting Issues and Bugs
-
-Report these on the [Issue Tracker](https://github.com/openemr/openemr/issues). If you are unsure if it is an issue/bug, then always feel free to use the [Forum](https://community.open-emr.org/) and [Chat](https://www.open-emr.org/chat/) to discuss about the issue 🪲.
-
-### Reporting Security Vulnerabilities
-
-Check out [SECURITY.md](.github/SECURITY.md)
-
-### API
-
-Check out [API_README.md](API_README.md)
-
-### Docker
-
-Check out [DOCKER_README.md](DOCKER_README.md)
-
-### FHIR
-
-Check out [FHIR_README.md](FHIR_README.md)
-
-### For Developers
-
-If using OpenEMR directly from the code repository, then the following commands will build OpenEMR (Node.js version 22.* is required) :
-
-```shell
-composer install --no-dev
-npm install
-npm run build
-composer dump-autoload -o
+```
+┌─────────────────────────────────────────────────┐
+│               Kubernetes Cluster                 │
+│  Namespace: openemr                              │
+│                                                  │
+│  ┌──────────────┐    ┌──────────────┐            │
+│  │  OpenEMR     │    │  OpenEMR     │            │
+│  │  Blue (live) │    │  Green       │            │
+│  │  1-5 pods    │    │  (standby)   │            │
+│  └──────┬───────┘    └──────────────┘            │
+│         │                                        │
+│  ┌──────▼───────┐    ┌──────────────┐            │
+│  │   Service    │    │     HPA      │            │
+│  │  NodePort    │    │ CPU > 60%    │            │
+│  │  port 31000  │    │ max 5 pods   │            │
+│  └──────────────┘    └──────────────┘            │
+│                                                  │
+│  ┌──────────────────────────────────────────┐    │
+│  │           MySQL (MariaDB)                │    │
+│  │           ClusterIP :3306                │    │
+│  └──────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────┘
 ```
 
-### Contributors
+---
 
-This project exists thanks to all the people who have contributed. [[Contribute]](CONTRIBUTING.md).
-<a href="https://github.com/openemr/openemr/graphs/contributors"><img src="https://opencollective.com/openemr/contributors.svg?width=890" /></a>
+## Files Structure
 
+```
+config5/
+├── k8s/
+│   ├── mysql-deployment.yaml     # MariaDB database + ClusterIP service
+│   ├── openemr-blue.yaml         # Blue deployment (active traffic)
+│   ├── openemr-green.yaml        # Green deployment (standby)
+│   ├── openemr-service.yaml      # NodePort service (selector: version=blue)
+│   └── hpa.yaml                  # HPA: min=1, max=5, CPU target=60%
+├── tests/
+│   ├── smoke-test.js             # 5 VUs, 1 min
+│   ├── load-test.js              # 100 VUs, 9 min
+│   ├── stress-test.js            # 500 VUs, 8 min
+│   └── results/
+│       ├── smoke-test-results.json
+│       ├── load-test-results.json
+│       └── stress-test-results.json
+└── README.md
+```
 
-### Sponsors
+---
 
-Thanks to our [ONC Certification Major Sponsors](https://www.open-emr.org/wiki/index.php/OpenEMR_Certification_Stage_III_Meaningful_Use#Major_sponsors)!
+## Deployment
 
+### Prerequisites
+- Minikube running
+- kubectl configured
+- metrics-server enabled
 
-### License
+### Deploy
 
-[GNU GPL](LICENSE)
+```bash
+# Create namespace
+kubectl create namespace openemr
+
+# Deploy database
+kubectl apply -f config5/k8s/mysql-deployment.yaml
+
+# Deploy Blue/Green
+kubectl apply -f config5/k8s/openemr-blue.yaml
+kubectl apply -f config5/k8s/openemr-green.yaml
+
+# Deploy service (points to Blue by default)
+kubectl apply -f config5/k8s/openemr-service.yaml
+
+# Deploy HPA
+kubectl apply -f config5/k8s/hpa.yaml
+
+# Enable metrics server
+minikube addons enable metrics-server
+```
+
+### Access the application
+
+```bash
+minikube service openemr -n openemr
+```
+
+---
+
+## Blue/Green Switch
+
+```bash
+# Switch traffic to Green (zero downtime)
+kubectl patch service openemr -n openemr -p '{"spec":{"selector":{"app":"openemr","version":"green"}}}'
+
+# Switch back to Blue
+kubectl patch service openemr -n openemr -p '{"spec":{"selector":{"app":"openemr","version":"blue"}}}'
+
+# Verify active version
+kubectl get service openemr -n openemr -o jsonpath='{.spec.selector}'
+```
+
+---
+
+## HPA Configuration
+
+| Parameter | Value |
+|---|---|
+| Min Replicas | 1 |
+| Max Replicas | 5 |
+| CPU Threshold | 60% |
+| Scale Target | openemr-blue |
+
+### HPA Behavior During Stress Test
+
+| Phase | CPU Usage | Replicas |
+|---|---|---|
+| Idle | 3% | 1 |
+| Load Start | 163% | 1→3 |
+| Peak | 250% | 5 |
+| Cool Down | 83% | 5 |
+| After Test | 6% | 1 |
+
+---
+
+## Load Tests
+
+Run with [K6](https://k6.io/):
+
+```bash
+# Smoke test
+k6 run tests/smoke-test.js
+
+# Load test
+k6 run tests/load-test.js
+
+# Stress test
+k6 run tests/stress-test.js
+```
+
+---
+
+## Application
+
+**OpenEMR v7.0.2** — World's most popular open source Electronic Health Record system
+- Used in 100+ countries, 200M+ patients
+- Stack: PHP + Apache + MariaDB
+- Docker image: `openemr/openemr:7.0.2`
