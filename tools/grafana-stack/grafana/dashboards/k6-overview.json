@@ -1,0 +1,88 @@
+{
+  "uid": "k6-overview",
+  "title": "K6 Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {"from": "now-30m", "to": "now"},
+  "templating": {
+    "list": [
+      {
+        "name": "test",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(k6_http_reqs_total, test)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {
+        "name": "color",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(k6_http_reqs_total, color)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {
+        "name": "pods",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(k6_http_reqs_total, pods)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Throughput (req/s)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum by (test,color,pods) (rate(k6_http_reqs_total{test=~\"$test\",color=~\"$color\",pods=~\"$pods\"}[1m]))",
+          "legendFormat": "{{test}} {{color}}/{{pods}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency P99 (ms)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "avg by (test,color,pods) (k6_http_req_duration_p99{test=~\"$test\",color=~\"$color\",pods=~\"$pods\"})",
+          "legendFormat": "{{test}} {{color}}/{{pods}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate (%)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "avg by (test,color,pods) (k6_http_req_failed_rate{test=~\"$test\",color=~\"$color\",pods=~\"$pods\"}) * 100",
+          "legendFormat": "{{test}} {{color}}/{{pods}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "VUs",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "max by (test,color,pods) (k6_vus{test=~\"$test\",color=~\"$color\",pods=~\"$pods\"})",
+          "legendFormat": "{{test}} {{color}}/{{pods}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openemr-green
+  namespace: openemr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openemr
+      version: green
+  template:
+    metadata:
+      labels:
+        app: openemr
+        version: green
+    spec:
+      initContainers:
+        - name: init-sites
+          image: openemr/openemr:7.0.4
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - >-
+              if [ ! -f /mnt/sites/default/sqlconf.php ]; then
+                echo "Initializing sites volume";
+                cp -a /var/www/localhost/htdocs/openemr/sites/. /mnt/sites/;
+              fi
+          volumeMounts:
+            - name: openemr-sites
+              mountPath: /mnt/sites
+      containers:
+        - name: openemr
+          image: openemr/openemr:7.0.4
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: openemr-sites
+              mountPath: /var/www/localhost/htdocs/openemr/sites
+          env:
+            - name: MYSQL_HOST
+              value: "mysql"
+            - name: MYSQL_ROOT_PASS
+              value: "root"
+            - name: MYSQL_USER
+              value: "openemr"
+            - name: MYSQL_PASS
+              value: "openemr"
+            - name: OE_USER
+              value: "admin"
+            - name: OE_PASS
+              value: "pass"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+      volumes:
+        - name: openemr-sites
+          persistentVolumeClaim:
+            claimName: openemr-sites
